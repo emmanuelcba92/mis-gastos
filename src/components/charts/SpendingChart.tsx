@@ -9,7 +9,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { CATEGORY_COLORS, type Category } from "@/types";
+import { CATEGORY_COLORS } from "@/types";
 
 interface SpendingChartProps {
   categoryBreakdown: { category: string; amount: number }[];
@@ -49,12 +49,27 @@ const CustomLegend = ({ payload }: any) => {
   );
 };
 
+// Generador de colores consistentes para categorías personalizadas
+const getCategoryColor = (category: string) => {
+  if (CATEGORY_COLORS[category]) return CATEGORY_COLORS[category];
+  
+  // Hash string to number
+  let hash = 0;
+  for (let i = 0; i < category.length; i++) {
+    hash = category.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Generate HSL color (keeping saturation and lightness for dark mode theme)
+  const h = Math.abs(hash) % 360;
+  return `hsl(${h}, 70%, 60%)`;
+};
+
 export function SpendingChart({ categoryBreakdown }: SpendingChartProps) {
   const data = useMemo(() => {
     return categoryBreakdown.map((item) => ({
       name: item.category,
       value: Math.round(item.amount * 100) / 100,
-      color: CATEGORY_COLORS[item.category as Category] || "#94A3B8",
+      color: getCategoryColor(item.category),
     }));
   }, [categoryBreakdown]);
 

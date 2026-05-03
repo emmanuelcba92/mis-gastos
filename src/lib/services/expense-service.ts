@@ -33,8 +33,13 @@ export async function addExpense(data: ExpenseInput): Promise<string> {
     ? null // suscripciones no tienen fecha de fin
     : calculateEndDate(data.start_date, data.installments_total);
 
+  // Clean up undefined values for Firestore
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([_, v]) => v !== undefined)
+  );
+
   const docRef = await addDoc(collection(db, COLLECTION), {
-    ...data,
+    ...cleanData,
     end_date,
     created_at: now,
     updated_at: now,

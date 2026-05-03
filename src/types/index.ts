@@ -8,6 +8,7 @@ export interface UserProfile {
   photo_url?: string;
   monthly_salary: number;
   currency: "ARS" | "USD";
+  custom_categories?: string[];
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -30,7 +31,7 @@ export interface Expense {
   id: string;
   userId: string;
   title: string;
-  category: Category;
+  category: string;
   amount: number; // Monto total del gasto
   is_subscription: boolean; // true = gasto recurrente mensual (ej: ChatGPT, Spotify)
   installments_total: number; // Total de cuotas (1 = pago único)
@@ -49,68 +50,21 @@ export interface Expense {
 export type ExpenseInput = Omit<Expense, "id" | "created_at" | "updated_at" | "end_date">;
 
 // ── Categorías ──
-export const CATEGORIES = [
-  "Software/IA",
-  "Streaming",
-  "Cloud Services",
-  "Gaming",
-  "Supermercado",
-  "Electrónica",
-  "Ropa",
-  "Entretenimiento",
-  "Salud",
-  "Transporte",
-  "Restaurante",
-  "Servicios",
-  "Educación",
-  "Hogar",
-  "Mascotas",
-  "Viajes",
-  "Otro",
+export const DEFAULT_CATEGORIES = [
+  "Suscripción",
+  "Compra",
 ] as const;
 
-export type Category = (typeof CATEGORIES)[number];
-
 // ── Mapeo de íconos por categoría ──
-export const CATEGORY_ICONS: Record<Category, string> = {
-  "Software/IA": "🤖",
-  Streaming: "📺",
-  "Cloud Services": "☁️",
-  Gaming: "🎮",
-  Supermercado: "🛒",
-  Electrónica: "💻",
-  Ropa: "👕",
-  Entretenimiento: "🎭",
-  Salud: "🏥",
-  Transporte: "🚗",
-  Restaurante: "🍽️",
-  Servicios: "⚡",
-  Educación: "📚",
-  Hogar: "🏠",
-  Mascotas: "🐾",
-  Viajes: "✈️",
-  Otro: "📦",
+export const CATEGORY_ICONS: Record<string, string> = {
+  "Suscripción": "🔄",
+  "Compra": "🛍️",
 };
 
 // ── Colores por categoría (para gráficos) ──
-export const CATEGORY_COLORS: Record<Category, string> = {
-  "Software/IA": "#8B5CF6",
-  Streaming: "#EC4899",
-  "Cloud Services": "#06B6D4",
-  Gaming: "#10B981",
-  Supermercado: "#F59E0B",
-  Electrónica: "#6366F1",
-  Ropa: "#F472B6",
-  Entretenimiento: "#A78BFA",
-  Salud: "#34D399",
-  Transporte: "#FB923C",
-  Restaurante: "#F87171",
-  Servicios: "#38BDF8",
-  Educación: "#818CF8",
-  Hogar: "#4ADE80",
-  Mascotas: "#FBBF24",
-  Viajes: "#2DD4BF",
-  Otro: "#94A3B8",
+export const CATEGORY_COLORS: Record<string, string> = {
+  "Suscripción": "#8B5CF6",
+  "Compra": "#EC4899",
 };
 
 // ── Tipo para el estado del sueldo ──
@@ -155,6 +109,6 @@ export interface ExpenseFilters {
   month: number; // 0-11
   year: number;
   paymentMethodId?: string;
-  category?: Category;
+  category?: string;
   type?: "all" | "subscription" | "installments" | "single";
 }

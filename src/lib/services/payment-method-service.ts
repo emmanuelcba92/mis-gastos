@@ -20,8 +20,14 @@ export async function addPaymentMethod(
   data: Omit<PaymentMethod, "id" | "created_at">
 ): Promise<string> {
   const db = getFirebaseDb();
+  
+  // Clean up undefined values for Firestore
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([_, v]) => v !== undefined)
+  );
+
   const docRef = await addDoc(collection(db, COLLECTION), {
-    ...data,
+    ...cleanData,
     created_at: Timestamp.now(),
   });
   return docRef.id;

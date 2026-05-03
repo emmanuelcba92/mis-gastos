@@ -6,10 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Timestamp } from "firebase/firestore";
 import { X, Calculator, Users, RefreshCw, CreditCard } from "lucide-react";
-import { CATEGORIES, type Expense } from "@/types";
+import { DEFAULT_CATEGORIES, type Expense } from "@/types";
 import type { PaymentMethod } from "@/types";
 import { addExpense, updateExpense } from "@/lib/services/expense-service";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 const expenseSchema = z.object({
   title: z.string().min(1, "Ingresá un título"),
@@ -36,7 +37,12 @@ interface ExpenseFormProps {
 
 export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: ExpenseFormProps) {
   const { user } = useAuth();
+  const { profile } = useUserProfile();
   const [saving, setSaving] = useState(false);
+
+  const availableCategories = Array.from(
+    new Set([...DEFAULT_CATEGORIES, ...(profile?.custom_categories || [])])
+  );
 
   const defaultDate = expense
     ? expense.start_date.toDate().toISOString().split("T")[0]
@@ -168,7 +174,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
                 className="w-full px-3 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 appearance-none cursor-pointer [&>option]:bg-zinc-900"
               >
                 <option value="">Seleccionar...</option>
-                {CATEGORIES.map((cat) => (
+                {availableCategories.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </select>

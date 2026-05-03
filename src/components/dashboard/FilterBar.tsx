@@ -1,8 +1,9 @@
 "use client";
 
-import { CATEGORIES, type Category, type ExpenseFilters } from "@/types";
+import { DEFAULT_CATEGORIES, type ExpenseFilters } from "@/types";
 import type { PaymentMethod } from "@/types";
 import { CreditCard, Filter, X } from "lucide-react";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 interface FilterBarProps {
   filters: ExpenseFilters;
@@ -11,6 +12,11 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filters, paymentMethods, onFilterChange }: FilterBarProps) {
+  const { profile } = useUserProfile();
+  const availableCategories = Array.from(
+    new Set([...DEFAULT_CATEGORIES, ...(profile?.custom_categories || [])])
+  );
+
   const hasActiveFilters =
     filters.paymentMethodId || filters.category || (filters.type && filters.type !== "all");
 
@@ -63,12 +69,12 @@ export function FilterBar({ filters, paymentMethods, onFilterChange }: FilterBar
       <select
         value={filters.category || ""}
         onChange={(e) =>
-          onFilterChange({ category: (e.target.value as Category) || undefined })
+          onFilterChange({ category: e.target.value || undefined })
         }
         className="text-xs bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-zinc-300 focus:outline-none focus:ring-1 focus:ring-violet-500/50 appearance-none cursor-pointer hover:bg-white/10 transition-colors [&>option]:bg-zinc-900"
       >
         <option value="">Todas las categorías</option>
-        {CATEGORIES.map((cat) => (
+        {availableCategories.map((cat) => (
           <option key={cat} value={cat}>
             {cat}
           </option>

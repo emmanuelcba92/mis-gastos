@@ -37,7 +37,7 @@ export async function createUserProfile(firebaseUser: User): Promise<void> {
 // ── Actualizar perfil ──
 export async function updateUserProfile(
   uid: string,
-  data: Partial<Pick<UserProfile, "display_name" | "monthly_salary" | "currency">>
+  data: Partial<Pick<UserProfile, "display_name" | "monthly_salary" | "currency" | "custom_categories">>
 ): Promise<void> {
   const db = getFirebaseDb();
   await updateDoc(doc(db, COLLECTION, uid), {

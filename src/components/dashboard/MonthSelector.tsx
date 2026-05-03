@@ -35,25 +35,23 @@ export function MonthSelector({ month, year, onChange }: MonthSelectorProps) {
     return month === now.getMonth() && year === now.getFullYear();
   };
 
-  const goToToday = () => {
-    const now = new Date();
-    onChange(now.getMonth(), now.getFullYear());
-  };
-
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-4">
       <button
         onClick={handlePrev}
-        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 active:scale-95"
+        className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/10 border border-white/10 transition-all duration-300 active:scale-95 text-zinc-400 hover:text-violet-300 shadow-[0_0_15px_rgba(255,255,255,0.02)] hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
       >
-        <ChevronLeft className="w-4 h-4 text-zinc-400" />
+        <ChevronLeft className="w-4 h-4" />
       </button>
 
-      <div className="flex items-center justify-center min-w-[180px] py-2 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 gap-1">
+      <div className="relative group flex items-center justify-center min-w-[200px] py-2.5 px-5 rounded-2xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.02)] transition-all duration-300 gap-2 overflow-hidden">
+        {/* Subtle hover glow */}
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-500/0 via-violet-500/10 to-indigo-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+        
         <select
           value={month}
           onChange={(e) => onChange(parseInt(e.target.value, 10), year)}
-          className="appearance-none bg-transparent text-base font-semibold text-zinc-100 focus:outline-none cursor-pointer [&>option]:bg-zinc-900 text-right"
+          className="relative z-10 appearance-none bg-transparent text-lg font-bold text-zinc-100 focus:outline-none cursor-pointer [&>option]:bg-zinc-900 [&>option]:text-base text-right tracking-tight"
         >
           {MONTH_NAMES.map((m, i) => (
             <option key={i} value={i}>{m}</option>
@@ -63,7 +61,7 @@ export function MonthSelector({ month, year, onChange }: MonthSelectorProps) {
         <select
           value={year}
           onChange={(e) => onChange(month, parseInt(e.target.value, 10))}
-          className="appearance-none bg-transparent text-sm text-zinc-500 focus:outline-none cursor-pointer [&>option]:bg-zinc-900"
+          className="relative z-10 appearance-none bg-transparent text-sm font-medium text-zinc-400 focus:outline-none cursor-pointer [&>option]:bg-zinc-900 [&>option]:text-base"
         >
           {Array.from({ length: 10 }).map((_, i) => {
             const y = 2024 + i;
@@ -72,17 +70,17 @@ export function MonthSelector({ month, year, onChange }: MonthSelectorProps) {
         </select>
 
         {isCurrentMonth() && (
-          <span className="ml-1 text-[10px] bg-violet-500/30 text-violet-300 px-1.5 py-0.5 rounded-full font-medium">
-            HOY
+          <span className="relative z-10 ml-2 text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border border-violet-500/30">
+            Hoy
           </span>
         )}
       </div>
 
       <button
         onClick={handleNext}
-        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-all duration-200 active:scale-95"
+        className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/10 border border-white/10 transition-all duration-300 active:scale-95 text-zinc-400 hover:text-violet-300 shadow-[0_0_15px_rgba(255,255,255,0.02)] hover:shadow-[0_0_15px_rgba(139,92,246,0.15)]"
       >
-        <ChevronRight className="w-4 h-4 text-zinc-400" />
+        <ChevronRight className="w-4 h-4" />
       </button>
     </div>
   );
