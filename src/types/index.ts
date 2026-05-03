@@ -1,47 +1,59 @@
 import { Timestamp } from "firebase/firestore";
 
-// ── Participante de un gasto compartido ──
-export interface Participante {
-  nombre: string;
-  porcentaje?: number; // 0-100
-  monto?: number; // monto fijo
-  pagado: boolean;
+// ── User Profile (colección: users) ──
+export interface UserProfile {
+  uid: string;
+  email: string;
+  display_name: string;
+  photo_url?: string;
+  monthly_salary: number;
+  currency: "ARS" | "USD";
+  created_at: Timestamp;
+  updated_at: Timestamp;
 }
 
-// ── Cuotas ──
-export interface Cuotas {
-  actual: number; // cuota actual al momento del ingreso
-  total: number; // total de cuotas (1 = pago único)
+// ── Payment Method (colección: payment_methods) ──
+export interface PaymentMethod {
+  id: string;
+  userId: string;
+  name: string; // "Visa Banco Nación", "Mercado Pago", etc.
+  type: PaymentMethodType;
+  brand?: string; // "Visa", "Mastercard", "Amex"
+  last_four?: string; // "4532"
+  created_at: Timestamp;
 }
 
-// ── Documento principal de la colección "gastos" ──
-export interface Gasto {
-  id: string; // Firestore doc ID
-  userId: string; // Firebase Auth UID (dueño)
-  comercio: string; // Nombre del comercio
-  descripcion?: string; // Descripción opcional
-  categoria: string; // Ej: "Supermercado", "Electrónica"
-  montoTotal: number; // Monto total de la compra
-  montoCuota: number; // Monto por cuota (montoTotal / cuotas.total)
+export type PaymentMethodType = "credit_card" | "debit" | "cash" | "digital_wallet";
 
-  cuotas: Cuotas;
-  fechaCompra: Timestamp; // Fecha de compra
-  fechaInicio: Timestamp; // Fecha de la primera cuota
-
-  participantes?: Participante[];
-
-  ticketUrl?: string; // URL del ticket en Firebase Storage
-  ticketPath?: string; // Path en Storage (para eliminación)
-
-  esFijo: boolean; // ¿Es un gasto fijo recurrente?
-  metodoIA: boolean; // ¿Fue pre-llenado por Gemini?
-
-  creadoEn: Timestamp;
-  actualizadoEn: Timestamp;
+// ── Expense (colección: expenses) ──
+export interface Expense {
+  id: string;
+  userId: string;
+  title: string;
+  category: Category;
+  amount: number; // Monto total del gasto
+  is_subscription: boolean; // true = gasto recurrente mensual (ej: ChatGPT, Spotify)
+  installments_total: number; // Total de cuotas (1 = pago único)
+  installments_paid: number; // Cuotas ya pagadas
+  start_date: Timestamp; // Fecha de inicio / compra
+  end_date: Timestamp | null; // Fecha de última cuota (calculada automáticamente)
+  is_shared: boolean; // ¿Se comparte entre personas?
+  split_count: number; // Cantidad de personas (1 = no compartido)
+  payment_method_id: string; // FK a payment_methods
+  notes?: string;
+  created_at: Timestamp;
+  updated_at: Timestamp;
 }
 
-// ── Categorías predefinidas ──
-export const CATEGORIAS = [
+// ── Expense sin ID (para crear nuevos) ──
+export type ExpenseInput = Omit<Expense, "id" | "created_at" | "updated_at" | "end_date">;
+
+// ── Categorías ──
+export const CATEGORIES = [
+  "Software/IA",
+  "Streaming",
+  "Cloud Services",
+  "Gaming",
   "Supermercado",
   "Electrónica",
   "Ropa",
@@ -57,4 +69,92 @@ export const CATEGORIAS = [
   "Otro",
 ] as const;
 
-export type Categoria = (typeof CATEGORIAS)[number];
+export type Category = (typeof CATEGORIES)[number];
+
+// ── Mapeo de íconos por categoría ──
+export const CATEGORY_ICONS: Record<Category, string> = {
+  "Software/IA": "🤖",
+  Streaming: "📺",
+  "Cloud Services": "☁️",
+  Gaming: "🎮",
+  Supermercado: "🛒",
+  Electrónica: "💻",
+  Ropa: "👕",
+  Entretenimiento: "🎭",
+  Salud: "🏥",
+  Transporte: "🚗",
+  Restaurante: "🍽️",
+  Servicios: "⚡",
+  Educación: "📚",
+  Hogar: "🏠",
+  Mascotas: "🐾",
+  Viajes: "✈️",
+  Otro: "📦",
+};
+
+// ── Colores por categoría (para gráficos) ──
+export const CATEGORY_COLORS: Record<Category, string> = {
+  "Software/IA": "#8B5CF6",
+  Streaming: "#EC4899",
+  "Cloud Services": "#06B6D4",
+  Gaming: "#10B981",
+  Supermercado: "#F59E0B",
+  Electrónica: "#6366F1",
+  Ropa: "#F472B6",
+  Entretenimiento: "#A78BFA",
+  Salud: "#34D399",
+  Transporte: "#FB923C",
+  Restaurante: "#F87171",
+  Servicios: "#38BDF8",
+  Educación: "#818CF8",
+  Hogar: "#4ADE80",
+  Mascotas: "#FBBF24",
+  Viajes: "#2DD4BF",
+  Otro: "#94A3B8",
+};
+
+// ── Tipo para el estado del sueldo ──
+export type SalaryStatus = "green" | "yellow" | "red";
+
+// ── Helper: calcular estado del sueldo ──
+export function getSalaryStatus(totalExpenses: number, monthlySalary: number): SalaryStatus {
+  if (monthlySalary <= 0) return "green";
+  const ratio = totalExpenses / monthlySalary;
+  if (ratio < 0.3) return "green";
+  if (ratio <= 0.6) return "yellow";
+  return "red";
+}
+
+// ── Helper: color del estado ──
+export const SALARY_STATUS_CONFIG: Record<
+  SalaryStatus,
+  { color: string; bgColor: string; label: string; emoji: string }
+> = {
+  green: {
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/20",
+    label: "Bajo control",
+    emoji: "✅",
+  },
+  yellow: {
+    color: "text-amber-400",
+    bgColor: "bg-amber-500/20",
+    label: "Precaución",
+    emoji: "⚠️",
+  },
+  red: {
+    color: "text-rose-400",
+    bgColor: "bg-rose-500/20",
+    label: "Excedido",
+    emoji: "🚨",
+  },
+};
+
+// ── Tipos de filtro ──
+export interface ExpenseFilters {
+  month: number; // 0-11
+  year: number;
+  paymentMethodId?: string;
+  category?: Category;
+  type?: "all" | "subscription" | "installments" | "single";
+}

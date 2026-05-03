@@ -1,198 +1,305 @@
 "use client";
 
-import { useAuth } from "@/contexts/AuthContext";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/contexts/AuthContext";
+import { useExpenses } from "@/hooks/useExpenses";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { deleteExpense } from "@/lib/services/expense-service";
+import type { Expense, ExpenseFilters } from "@/types";
+
+import { SalaryAlert } from "@/components/dashboard/SalaryAlert";
+import { MonthSelector } from "@/components/dashboard/MonthSelector";
+import { FilterBar } from "@/components/dashboard/FilterBar";
+import { SummaryCards } from "@/components/dashboard/SummaryCards";
+import { ExpenseList } from "@/components/expenses/ExpenseList";
+import { ExpenseForm } from "@/components/expenses/ExpenseForm";
+import { SpendingChart } from "@/components/charts/SpendingChart";
+
+import { ProfileSettings } from "@/components/settings/ProfileSettings";
+import { PaymentMethodForm } from "@/components/settings/PaymentMethodForm";
+
+import {
+  LogOut,
+  Plus,
+  Settings,
+  BarChart3,
+  LayoutDashboard,
+  Loader2,
+} from "lucide-react";
+
+type Tab = "dashboard" | "charts" | "settings";
 
 export default function HomePage() {
-  const { user, loading, logout } = useAuth();
   const router = useRouter();
+  const { user, loading: authLoading, logout } = useAuth();
+  const { profile } = useUserProfile();
+  const { paymentMethods } = usePaymentMethods();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/login");
-    }
-  }, [user, loading, router]);
+  const now = new Date();
+  const [filters, setFilters] = useState<ExpenseFilters>({
+    month: now.getMonth(),
+    year: now.getFullYear(),
+    type: "all",
+  });
 
-  if (loading || !user) {
+  const {
+    expenses,
+    monthlyTotal,
+    subscriptionTotal,
+    subscriptionCount,
+    installmentsTotal,
+    installmentsCount,
+    sharedCount,
+    categoryBreakdown,
+    loading: expensesLoading,
+  } = useExpenses(filters);
+
+  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+  // Auth guard
+  if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <Loader2 className="w-8 h-8 text-violet-500 animate-spin" />
       </div>
     );
   }
 
-  const currentDate = new Date();
-  const monthNames = [
-    "Enero",
-    "Febrero",
-    "Marzo",
-    "Abril",
-    "Mayo",
-    "Junio",
-    "Julio",
-    "Agosto",
-    "Septiembre",
-    "Octubre",
-    "Noviembre",
-    "Diciembre",
-  ];
+  if (!user) {
+    router.push("/login");
+    return null;
+  }
+
+  const handleEdit = (expense: Expense) => {
+    setEditingExpense(expense);
+    setShowExpenseForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Eliminar este gasto?")) return;
+    try {
+      await deleteExpense(id);
+    } catch (err) {
+      console.error("Error eliminando gasto:", err);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
+  const handleFilterChange = (newFilters: Partial<ExpenseFilters>) => {
+    setFilters((prev) => ({ ...prev, ...newFilters }));
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      {/* Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/3 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-      </div>
-
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
-      <header className="relative border-b border-slate-800/60 bg-slate-900/50 backdrop-blur-xl">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="sticky top-0 z-40 bg-zinc-950/80 backdrop-blur-xl border-b border-white/5">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <svg
-                className="w-5 h-5 text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"
-                />
-              </svg>
+            {user.photoURL && (
+              <img
+                src={user.photoURL}
+                alt="Avatar"
+                className="w-8 h-8 rounded-full ring-2 ring-violet-500/30"
+              />
+            )}
+            <div>
+              <h1 className="text-sm font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                Mis Gastos
+              </h1>
+              <p className="text-[11px] text-zinc-500">{user.displayName}</p>
             </div>
-            <h1 className="text-lg font-semibold text-slate-100">Mis Gastos</h1>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium text-slate-200">
-                {user.displayName}
-              </p>
-              <p className="text-xs text-slate-500">{user.email}</p>
-            </div>
-            <Avatar className="h-9 w-9 border-2 border-slate-700">
-              <AvatarImage
-                src={user.photoURL || undefined}
-                alt={user.displayName || "Usuario"}
-              />
-              <AvatarFallback className="bg-emerald-600 text-white text-sm">
-                {user.displayName?.charAt(0) || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 cursor-pointer"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"
-                />
-              </svg>
-            </Button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-xl hover:bg-white/5 transition-colors"
+            title="Cerrar sesión"
+          >
+            <LogOut className="w-4 h-4 text-zinc-500" />
+          </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="relative max-w-5xl mx-auto px-4 py-8">
-        {/* Month indicator */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-100">
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </h2>
-          <p className="text-slate-400 mt-1">Resumen de gastos proyectados</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-slate-900/60 backdrop-blur-xl border-slate-800/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">
-                Gasto Total del Mes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-emerald-400">$0</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Fijos + cuotas activas
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900/60 backdrop-blur-xl border-slate-800/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">
-                Gastos Fijos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-blue-400">$0</p>
-              <p className="text-xs text-slate-500 mt-1">Recurrentes</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-slate-900/60 backdrop-blur-xl border-slate-800/60">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-400">
-                Cuotas Activas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-amber-400">0</p>
-              <p className="text-xs text-slate-500 mt-1">
-                Compras en cuotas vigentes
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Separator className="bg-slate-800/60 mb-8" />
-
-        {/* Empty state */}
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center mb-4">
-            <svg
-              className="w-10 h-10 text-slate-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+      <main className="max-w-2xl mx-auto px-4 pb-28">
+        {/* Tab: Dashboard */}
+        {activeTab === "dashboard" && (
+          <div className="space-y-5 py-5">
+            {/* Month selector */}
+            <div className="flex justify-center">
+              <MonthSelector
+                month={filters.month}
+                year={filters.year}
+                onChange={(m, y) => handleFilterChange({ month: m, year: y })}
               />
-            </svg>
+            </div>
+
+            {/* Salary Alert */}
+            <SalaryAlert
+              monthlyTotal={monthlyTotal}
+              monthlySalary={profile?.monthly_salary || 0}
+            />
+
+            {/* Summary Cards */}
+            <SummaryCards
+              monthlyTotal={monthlyTotal}
+              subscriptionTotal={subscriptionTotal}
+              subscriptionCount={subscriptionCount}
+              installmentsTotal={installmentsTotal}
+              installmentsCount={installmentsCount}
+              sharedCount={sharedCount}
+            />
+
+            {/* Filter Bar */}
+            <FilterBar
+              filters={filters}
+              paymentMethods={paymentMethods}
+              onFilterChange={handleFilterChange}
+            />
+
+            {/* Expense List */}
+            {expensesLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-6 h-6 text-violet-500 animate-spin" />
+              </div>
+            ) : (
+              <ExpenseList
+                expenses={expenses}
+                paymentMethods={paymentMethods}
+                month={filters.month}
+                year={filters.year}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            )}
           </div>
-          <h3 className="text-lg font-semibold text-slate-300 mb-2">
-            No hay gastos registrados
-          </h3>
-          <p className="text-sm text-slate-500 max-w-sm">
-            Cargá tu primer gasto escaneando un ticket o ingresándolo
-            manualmente. ¡Empezá a controlar tus finanzas!
-          </p>
-        </div>
+        )}
+
+        {/* Tab: Charts */}
+        {activeTab === "charts" && (
+          <div className="space-y-5 py-5">
+            <div className="flex justify-center">
+              <MonthSelector
+                month={filters.month}
+                year={filters.year}
+                onChange={(m, y) => handleFilterChange({ month: m, year: y })}
+              />
+            </div>
+
+            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-5">
+              <h2 className="text-base font-semibold text-zinc-200 mb-1">
+                Distribución por Categoría
+              </h2>
+              <p className="text-xs text-zinc-500 mb-4">
+                Porcentaje de tus gastos mensuales por categoría
+              </p>
+              <SpendingChart categoryBreakdown={categoryBreakdown} />
+            </div>
+
+            {/* Top categorías */}
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold text-zinc-300">Top Categorías</h3>
+              {categoryBreakdown.slice(0, 5).map((item, i) => (
+                <div
+                  key={item.category}
+                  className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/5 rounded-xl"
+                >
+                  <span className="text-sm font-mono text-zinc-500 w-5">
+                    {i + 1}.
+                  </span>
+                  <span className="flex-1 text-sm text-zinc-300">{item.category}</span>
+                  <span className="text-sm font-bold text-zinc-100 font-mono">
+                    ${item.amount.toLocaleString("es-AR", { minimumFractionDigits: 0 })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Settings */}
+        {activeTab === "settings" && (
+          <div className="space-y-6 py-5">
+            {/* Lazy import de settings */}
+            <SettingsContent />
+          </div>
+        )}
       </main>
+
+      {/* FAB - Agregar gasto */}
+      {activeTab === "dashboard" && (
+        <button
+          onClick={() => {
+            setEditingExpense(null);
+            setShowExpenseForm(true);
+          }}
+          className="fixed bottom-24 right-4 sm:right-[calc(50%-320px+16px)] z-30 w-14 h-14 bg-gradient-to-br from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 rounded-2xl shadow-2xl shadow-violet-500/30 flex items-center justify-center transition-all duration-200 active:scale-90"
+        >
+          <Plus className="w-6 h-6 text-white" />
+        </button>
+      )}
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/90 backdrop-blur-xl border-t border-white/5">
+        <div className="max-w-2xl mx-auto flex items-center justify-around py-2">
+          {[
+            { key: "dashboard" as Tab, icon: LayoutDashboard, label: "Inicio" },
+            { key: "charts" as Tab, icon: BarChart3, label: "Gráficos" },
+            { key: "settings" as Tab, icon: Settings, label: "Ajustes" },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-all duration-200 ${
+                  isActive
+                    ? "text-violet-400"
+                    : "text-zinc-500 hover:text-zinc-400"
+                }`}
+              >
+                <Icon className={`w-5 h-5 ${isActive ? "drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" : ""}`} />
+                <span className="text-[10px] font-medium">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Expense Form Modal */}
+      {showExpenseForm && (
+        <ExpenseForm
+          expense={editingExpense}
+          paymentMethods={paymentMethods}
+          onClose={() => {
+            setShowExpenseForm(false);
+            setEditingExpense(null);
+          }}
+          onSuccess={() => {}}
+        />
+      )}
     </div>
   );
 }
+
+// Settings content inline (to avoid extra routing)
+function SettingsContent() {
+  return (
+    <>
+      <ProfileSettings />
+      <div className="border-t border-white/5 pt-6">
+        <PaymentMethodForm />
+      </div>
+    </>
+  );
+}
+

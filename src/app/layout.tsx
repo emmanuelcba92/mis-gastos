@@ -14,9 +14,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mis Gastos — Control Inteligente de Gastos Proyectados",
+  title: "Mis Gastos — Control de Suscripciones & Tarjetas",
   description:
-    "Controlá tus gastos con cuotas, tickets digitalizados con IA, y proyecciones mensuales. Todo en un solo lugar.",
+    "Control inteligente de suscripciones de Software/IA, cuotas con tarjeta de crédito y gastos compartidos. Adaptado para Argentina.",
+  keywords: ["gastos", "suscripciones", "tarjetas", "cuotas", "argentina", "finanzas personales"],
+  openGraph: {
+    title: "Mis Gastos",
+    description: "Control inteligente de suscripciones y gastos con tarjeta",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
