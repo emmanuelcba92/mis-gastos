@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, Loader2, FileSpreadsheet } from "lucide-react";
+import { Loader2, FileSpreadsheet } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
+import * as XLSX from "xlsx";
 import { addExpense } from "@/lib/services/expense-service";
 import { addPaymentMethod } from "@/lib/services/payment-method-service";
 import type { PaymentMethod } from "@/types";
@@ -26,37 +27,21 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
     setError(null);
 
     try {
-      const text = await file.text();
-      const lines = text.split(/\r?\n/).filter((line) => line.trim() !== "");
+      // Leemos el archivo como ArrayBuffer para soportar XLSX
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array", cellDates: true });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
       
-      if (lines.length < 2) {
+      // raw: false asegura que agarramos el texto tal cual se ve en Excel
+      const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, raw: false });
+      const validRows = rows.filter(row => row && row.length > 0);
+
+      if (validRows.length < 2) {
         throw new Error("El archivo está vacío o no tiene datos válidos.");
       }
 
-      // Detectar separador (coma o punto y coma)
-      const separator = lines[0].includes(";") ? ";" : ",";
-      
-      // Función simple para parsear la línea respetando comillas
-      const parseCsvLine = (line: string) => {
-        const result = [];
-        let current = "";
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === separator && !inQuotes) {
-            result.push(current);
-            current = "";
-          } else {
-            current += char;
-          }
-        }
-        result.push(current);
-        return result.map(s => s.trim().replace(/^"|"$/g, ''));
-      };
-
-      const headers = parseCsvLine(lines[0]).map((h) => h.toUpperCase());
+      const headers = validRows[0].map((h) => String(h).trim().toUpperCase());
       const col = {
         fecha: headers.indexOf("FECHA"),
         nombre: headers.indexOf("NOMBRE"),
@@ -67,45 +52,42 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
       };
 
       if (col.nombre === -1 || col.total === -1) {
-        throw new Error("El archivo debe contener al menos las columnas NOMBRE y TOTAL (detectadas: " + headers.join(", ") + ")");
+        throw new Error(
+          "El archivo debe contener al menos las columnas NOMBRE y TOTAL (detectadas: " + headers.join(", ") + ")"
+        );
       }
 
       const localPaymentMethods = [...paymentMethods];
 
-      // Función para limpiar montos como "$ 138.785,40" o "u$s 9,99" a número
       const parseAmount = (val: string) => {
-        let clean = val.replace(/[^0-9,\.-]/g, ''); // Deja solo números, comas, puntos y signos menos
+        let clean = val.replace(/[^0-9,\.-]/g, ''); 
         if (clean.includes(',') && clean.includes('.')) {
-          // Asume que el punto es de miles y la coma decimal (formato AR)
           clean = clean.replace(/\./g, '').replace(',', '.');
         } else if (clean.includes(',')) {
-          // Asume coma decimal
           clean = clean.replace(',', '.');
         }
         return Number(clean) || 0;
       };
 
-      for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const row = parseCsvLine(lines[i]);
+      for (let i = 1; i < validRows.length; i++) {
+        const row = validRows[i];
         
-        const fechaStr = col.fecha !== -1 ? row[col.fecha] : "";
-        const nombreStr = col.nombre !== -1 ? row[col.nombre] : "";
-        const catStr = col.categoria !== -1 && row[col.categoria] ? row[col.categoria] : "Compra";
-        const pagoStr = col.pago !== -1 && row[col.pago] ? row[col.pago] : "Efectivo";
-        const cuotasStr = col.cuotas !== -1 ? row[col.cuotas] : "";
-        const totalStr = col.total !== -1 ? row[col.total] : "0";
+        const fechaStr = col.fecha !== -1 ? String(row[col.fecha] || "") : "";
+        const nombreStr = col.nombre !== -1 ? String(row[col.nombre] || "") : "";
+        const catStr = col.categoria !== -1 && row[col.categoria] ? String(row[col.categoria]) : "Compra";
+        const pagoStr = col.pago !== -1 && row[col.pago] ? String(row[col.pago]) : "Efectivo";
+        const cuotasStr = col.cuotas !== -1 ? String(row[col.cuotas] || "") : "";
+        const totalStr = col.total !== -1 ? String(row[col.total] || "0") : "0";
 
         if (!nombreStr) continue;
 
         let startDate = new Date();
         if (fechaStr) {
-          // Puede ser "04/05/2026" o "4/5/26"
           const parts = fechaStr.split(/[-/]/);
           if (parts.length >= 3) {
             const day = Number(parts[0]);
             const month = Number(parts[1]) - 1;
-            let yearStr = parts[2].split(" ")[0]; // Por si tiene hora
+            let yearStr = parts[2].split(" ")[0]; 
             const year = yearStr.length === 2 ? 2000 + Number(yearStr) : Number(yearStr);
             startDate = new Date(year, month, day);
           }
@@ -126,7 +108,6 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
         const amount = parseAmount(totalStr);
         if (amount === 0) continue;
 
-        // Método de pago
         let pmId = "";
         let existingPm = localPaymentMethods.find(
           (p) => p.name.toLowerCase() === pagoStr.toLowerCase()
@@ -138,12 +119,11 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           pmId = await addPaymentMethod({
             userId,
             name: pagoStr,
-            type: "credit_card", // asume crédito por defecto si no existía
+            type: "credit_card",
           });
           localPaymentMethods.push({ id: pmId, userId, name: pagoStr, type: "credit_card", created_at: Timestamp.now() });
         }
 
-        // Crear gasto
         await addExpense({
           userId,
           title: nombreStr,
@@ -164,7 +144,7 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
       alert("¡Gastos importados con éxito!");
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Error al procesar el archivo CSV.");
+      setError(err.message || "Error al procesar el archivo Excel/CSV.");
     } finally {
       setLoading(false);
     }
@@ -174,7 +154,7 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
     <div>
       <input
         type="file"
-        accept=".csv"
+        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
         className="hidden"
         ref={fileInputRef}
         onChange={handleImport}
@@ -189,9 +169,9 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
         ) : (
           <FileSpreadsheet className="w-4 h-4" />
         )}
-        <span>Importar CSV</span>
+        <span>Importar Excel</span>
       </button>
-      {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+      {error && <p className="text-red-400 text-xs mt-2 max-w-xs">{error}</p>}
     </div>
   );
 }
