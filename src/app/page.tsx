@@ -15,6 +15,7 @@ import { FilterBar } from "@/components/dashboard/FilterBar";
 import { SummaryCards } from "@/components/dashboard/SummaryCards";
 import { ExpenseList } from "@/components/expenses/ExpenseList";
 import { ExpenseForm } from "@/components/expenses/ExpenseForm";
+import { ImportCSV } from "@/components/expenses/ImportCSV";
 import { SpendingChart } from "@/components/charts/SpendingChart";
 
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
@@ -173,13 +174,22 @@ export default function HomePage() {
               sharedCount={sharedCount}
             />
 
-            {/* Filter Bar */}
-            <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 backdrop-blur-md">
-              <FilterBar
-                filters={filters}
-                paymentMethods={paymentMethods}
-                onFilterChange={handleFilterChange}
-              />
+            {/* Filter Bar & Import */}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1 bg-white/[0.02] border border-white/5 rounded-2xl p-4 backdrop-blur-md">
+                <FilterBar
+                  filters={filters}
+                  paymentMethods={paymentMethods}
+                  onFilterChange={handleFilterChange}
+                />
+              </div>
+              <div className="flex items-center justify-center bg-white/[0.02] border border-white/5 rounded-2xl p-4 backdrop-blur-md">
+                <ImportCSV 
+                  userId={user.uid} 
+                  paymentMethods={paymentMethods} 
+                  onSuccess={() => {}} 
+                />
+              </div>
             </div>
 
             {/* Expense List */}
