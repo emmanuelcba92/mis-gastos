@@ -133,8 +133,15 @@ export function getMonthlyAmount(expense: Expense, month: number, year: number):
   }
 
   // Cuotas: verificar si este mes cae dentro del rango
-  const startMonth = startDate.getMonth() + startDate.getFullYear() * 12;
+  let startMonth = startDate.getMonth() + startDate.getFullYear() * 12;
   const targetMonth = month + year * 12;
+  
+  const titleLower = expense.title.toLowerCase();
+  const isRefinancing = titleLower.includes("opcion") || titleLower.includes("opción") || titleLower.includes("pago digi");
+  if (isRefinancing) {
+    startMonth -= 1;
+  }
+
   const endMonth = startMonth + expense.installments_total - 1;
 
   if (targetMonth >= startMonth && targetMonth <= endMonth) {
@@ -154,8 +161,14 @@ export function getCurrentInstallment(
   if (expense.installments_total <= 1 || expense.is_subscription) return null;
 
   const startDate = expense.billing_start_date ? expense.billing_start_date.toDate() : expense.start_date.toDate();
-  const startMonth = startDate.getMonth() + startDate.getFullYear() * 12;
+  let startMonth = startDate.getMonth() + startDate.getFullYear() * 12;
   const targetMonth = month + year * 12;
+
+  const titleLower = expense.title.toLowerCase();
+  const isRefinancing = titleLower.includes("opcion") || titleLower.includes("opción") || titleLower.includes("pago digi");
+  if (isRefinancing) {
+    startMonth -= 1;
+  }
 
   const installment = targetMonth - startMonth + 1;
   if (installment < 1 || installment > expense.installments_total) return null;
