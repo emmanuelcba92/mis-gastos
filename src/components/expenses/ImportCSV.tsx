@@ -33,52 +33,84 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
         throw new Error("El archivo está vacío o no tiene datos válidos.");
       }
 
-      // Obtener índices de las columnas según la cabecera
-      const headers = lines[0].split(",").map((h) => h.trim().toUpperCase());
+      // Detectar separador (coma o punto y coma)
+      const separator = lines[0].includes(";") ? ";" : ",";
+      
+      // Función simple para parsear la línea respetando comillas
+      const parseCsvLine = (line: string) => {
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === separator && !inQuotes) {
+            result.push(current);
+            current = "";
+          } else {
+            current += char;
+          }
+        }
+        result.push(current);
+        return result.map(s => s.trim().replace(/^"|"$/g, ''));
+      };
+
+      const headers = parseCsvLine(lines[0]).map((h) => h.toUpperCase());
       const col = {
         fecha: headers.indexOf("FECHA"),
         nombre: headers.indexOf("NOMBRE"),
-        categoria: headers.indexOf("CATEGORIA"),
+        categoria: headers.indexOf("CATEGORIA") !== -1 ? headers.indexOf("CATEGORIA") : headers.indexOf("CATEGORÍA"),
         pago: headers.indexOf("PAGO"),
         cuotas: headers.indexOf("CUOTAS"),
         total: headers.indexOf("TOTAL"),
       };
 
-      // Si falta alguna columna importante, advertimos, pero intentamos seguir
       if (col.nombre === -1 || col.total === -1) {
-        throw new Error("El archivo debe contener al menos las columnas NOMBRE y TOTAL.");
+        throw new Error("El archivo debe contener al menos las columnas NOMBRE y TOTAL (detectadas: " + headers.join(", ") + ")");
       }
 
-      // Cache local para métodos de pago que vamos creando
       const localPaymentMethods = [...paymentMethods];
 
+      // Función para limpiar montos como "$ 138.785,40" o "u$s 9,99" a número
+      const parseAmount = (val: string) => {
+        let clean = val.replace(/[^0-9,\.-]/g, ''); // Deja solo números, comas, puntos y signos menos
+        if (clean.includes(',') && clean.includes('.')) {
+          // Asume que el punto es de miles y la coma decimal (formato AR)
+          clean = clean.replace(/\./g, '').replace(',', '.');
+        } else if (clean.includes(',')) {
+          // Asume coma decimal
+          clean = clean.replace(',', '.');
+        }
+        return Number(clean) || 0;
+      };
+
       for (let i = 1; i < lines.length; i++) {
-        // Separa por comas (no soporta comas dentro de comillas por ahora, hay que armarlo simple)
-        const row = lines[i].split(",");
+        if (!lines[i].trim()) continue;
+        const row = parseCsvLine(lines[i]);
         
-        const fechaStr = col.fecha !== -1 ? row[col.fecha]?.trim() : "";
-        const nombreStr = col.nombre !== -1 ? row[col.nombre]?.trim() : "";
-        const catStr = col.categoria !== -1 ? row[col.categoria]?.trim() : "Compra";
-        const pagoStr = col.pago !== -1 ? row[col.pago]?.trim() : "Efectivo";
-        const cuotasStr = col.cuotas !== -1 ? row[col.cuotas]?.trim() : "";
-        const totalStr = col.total !== -1 ? row[col.total]?.trim() : "0";
+        const fechaStr = col.fecha !== -1 ? row[col.fecha] : "";
+        const nombreStr = col.nombre !== -1 ? row[col.nombre] : "";
+        const catStr = col.categoria !== -1 && row[col.categoria] ? row[col.categoria] : "Compra";
+        const pagoStr = col.pago !== -1 && row[col.pago] ? row[col.pago] : "Efectivo";
+        const cuotasStr = col.cuotas !== -1 ? row[col.cuotas] : "";
+        const totalStr = col.total !== -1 ? row[col.total] : "0";
 
-        if (!nombreStr || !totalStr) continue;
+        if (!nombreStr) continue;
 
-        // Parse Fecha (DD/MM/AA o DD/MM/AAAA)
         let startDate = new Date();
         if (fechaStr) {
-          const parts = fechaStr.split("/");
-          if (parts.length === 3) {
+          // Puede ser "04/05/2026" o "4/5/26"
+          const parts = fechaStr.split(/[-/]/);
+          if (parts.length >= 3) {
             const day = Number(parts[0]);
             const month = Number(parts[1]) - 1;
-            const yearStr = parts[2];
+            let yearStr = parts[2].split(" ")[0]; // Por si tiene hora
             const year = yearStr.length === 2 ? 2000 + Number(yearStr) : Number(yearStr);
             startDate = new Date(year, month, day);
           }
         }
 
-        // Parse Cuotas (ej: "5/12" o "12")
         let installmentsTotal = 1;
         let installmentsPaid = 1;
         if (cuotasStr) {
@@ -90,6 +122,9 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
             installmentsTotal = Number(cuotasStr) || 1;
           }
         }
+
+        const amount = parseAmount(totalStr);
+        if (amount === 0) continue;
 
         // Método de pago
         let pmId = "";
@@ -113,7 +148,7 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           userId,
           title: nombreStr,
           category: catStr,
-          amount: Number(totalStr),
+          amount: amount,
           is_subscription: catStr.toLowerCase().includes("suscrip"),
           installments_total: installmentsTotal,
           installments_paid: installmentsPaid,
