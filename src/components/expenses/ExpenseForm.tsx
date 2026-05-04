@@ -23,6 +23,7 @@ const expenseSchema = z.object({
   split_count: z.number().int().min(1),
   payment_method_id: z.string().min(1, "Elegí un método de pago"),
   start_date: z.string().min(1, "Ingresá una fecha"),
+  currency: z.enum(["ARS", "USD"]),
   notes: z.string().optional(),
 });
 
@@ -66,6 +67,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
       split_count: expense?.split_count || 1,
       payment_method_id: expense?.payment_method_id || "",
       start_date: defaultDate,
+      currency: expense?.currency || "ARS",
       notes: expense?.notes || "",
     },
   });
@@ -73,6 +75,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
   const watchSubscription = watch("is_subscription");
   const watchShared = watch("is_shared");
   const watchAmount = watch("amount");
+  const watchCurrency = watch("currency");
   const watchInstallments = watch("installments_total");
   const watchSplitCount = watch("split_count");
 
@@ -105,6 +108,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
           split_count: data.is_shared ? data.split_count : 1,
           payment_method_id: data.payment_method_id,
           start_date: startDate,
+          currency: data.currency,
           notes: data.notes,
         });
       } else {
@@ -120,6 +124,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
           split_count: data.is_shared ? data.split_count : 1,
           payment_method_id: data.payment_method_id,
           start_date: startDate,
+          currency: data.currency,
           notes: data.notes,
         });
       }
@@ -200,22 +205,33 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
             </div>
           </div>
 
-          {/* Monto + Fecha */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Monto Total (ARS)</label>
-              <input
-                {...register("amount", { valueAsNumber: true })}
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 font-mono"
-              />
+          {/* Monto + Moneda + Fecha */}
+          <div className="grid grid-cols-12 gap-3">
+            <div className="col-span-7 sm:col-span-5">
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Monto Total</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center">
+                  <select
+                    {...register("currency")}
+                    className="h-full py-0 pl-3 pr-7 bg-transparent text-zinc-400 text-sm focus:outline-none focus:ring-0 border-r border-white/10 appearance-none cursor-pointer [&>option]:bg-zinc-900"
+                  >
+                    <option value="ARS">ARS</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+                <input
+                  {...register("amount", { valueAsNumber: true })}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  className="w-full pl-[4.5rem] pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 font-mono"
+                />
+              </div>
               {errors.amount && <p className="text-xs text-rose-400 mt-1">{errors.amount.message}</p>}
             </div>
 
-            <div>
+            <div className="col-span-5 sm:col-span-7">
               <label className="block text-xs font-medium text-zinc-400 mb-1.5">Fecha</label>
               <input
                 {...register("start_date")}
@@ -316,14 +332,14 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
               <div className="flex justify-between text-sm">
                 <span className="text-zinc-400">Monto por mes:</span>
                 <span className="text-zinc-100 font-mono font-semibold">
-                  ${monthlyAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                  {watchCurrency === "USD" ? "u$s" : "$"} {monthlyAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
               {watchShared && watchSplitCount > 1 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-400">Tu parte ({watchSplitCount} personas):</span>
                   <span className="text-emerald-400 font-mono font-semibold">
-                    ${perPersonAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                    {watchCurrency === "USD" ? "u$s" : "$"} {perPersonAmount.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
