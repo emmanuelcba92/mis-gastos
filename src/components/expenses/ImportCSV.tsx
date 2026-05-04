@@ -4,9 +4,10 @@ import { useState, useRef } from "react";
 import { Loader2, FileSpreadsheet } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import * as XLSX from "xlsx";
-import { addExpense } from "@/lib/services/expense-service";
+import { addExpense, deleteAllExpensesForUser } from "@/lib/services/expense-service";
 import { addPaymentMethod } from "@/lib/services/payment-method-service";
 import type { PaymentMethod } from "@/types";
+import { Trash2 } from "lucide-react";
 
 interface ImportCSVProps {
   userId: string;
@@ -17,7 +18,25 @@ interface ImportCSVProps {
 export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
+  const [nxClosingDay, setNxClosingDay] = useState<number>(27);
+  const [bankClosingDay, setBankClosingDay] = useState<number>(25);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDeleteAll = async () => {
+    if (confirm("🚨 ¿ESTÁS SEGURO? Esto borrará TODOS tus gastos actuales. No se puede deshacer.")) {
+      setLoading(true);
+      try {
+        await deleteAllExpensesForUser(userId);
+        onSuccess();
+        alert("Todos los gastos fueron eliminados.");
+      } catch (err: any) {
+        alert("Error al borrar: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,13 +135,16 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
         const amount = parseAmount(totalVal);
         if (amount === 0) continue;
 
+        // Buscar o crear método de pago
         let pmId = "";
+        let isCreditCard = true; // Por defecto creamos como crédito
         let existingPm = localPaymentMethods.find(
           (p) => p.name.toLowerCase() === pagoStr.toLowerCase()
         );
 
         if (existingPm) {
           pmId = existingPm.id;
+          isCreditCard = existingPm.type === "credit_card";
         } else if (pagoStr) {
           pmId = await addPaymentMethod({
             userId,
@@ -130,6 +152,31 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
             type: "credit_card",
           });
           localPaymentMethods.push({ id: pmId, userId, name: pagoStr, type: "credit_card", created_at: Timestamp.now() });
+        }
+
+        // Lógica de fecha de facturación (mes siguiente) para Tarjetas de Crédito
+        let billingStartDate: Date | undefined = undefined;
+        if (isCreditCard) {
+          const isNX = pagoStr.toLowerCase().includes("nx") || pagoStr.toLowerCase().includes("naranja");
+          const closingDay = isNX ? nxClosingDay : bankClosingDay;
+          
+          let billingMonth = startDate.getMonth();
+          let billingYear = startDate.getFullYear();
+
+          if (startDate.getDate() > closingDay) {
+            // Pasó el cierre, entra al otro mes
+            billingMonth += 2;
+          } else {
+            // Entra al mes siguiente
+            billingMonth += 1;
+          }
+
+          if (billingMonth > 11) {
+            billingMonth -= 12;
+            billingYear += 1;
+          }
+          // Lo seteamos al 1er día del mes de cobro para que getMonthlyAmount lo tome fácil
+          billingStartDate = new Date(billingYear, billingMonth, 1);
         }
 
         await addExpense({
@@ -141,6 +188,7 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           installments_total: installmentsTotal,
           installments_paid: installmentsPaid,
           start_date: Timestamp.fromDate(startDate),
+          billing_start_date: billingStartDate ? Timestamp.fromDate(billingStartDate) : undefined,
           is_shared: false,
           split_count: 1,
           payment_method_id: pmId,
@@ -159,27 +207,83 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
   };
 
   return (
-    <div>
-      <input
-        type="file"
-        accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
-        className="hidden"
-        ref={fileInputRef}
-        onChange={handleImport}
-      />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={loading}
-        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-50"
-      >
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <FileSpreadsheet className="w-4 h-4" />
-        )}
-        <span>Importar Excel</span>
-      </button>
-      {error && <p className="text-red-400 text-xs mt-2 max-w-xs">{error}</p>}
+    <div className="flex flex-col gap-2 w-full sm:w-auto">
+      <div className="flex gap-2 w-full sm:w-auto">
+        <input
+          type="file"
+          accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+          className="hidden"
+          ref={fileInputRef}
+          onChange={handleImport}
+        />
+        
+        {/* Botón de Importar */}
+        <button
+          onClick={() => {
+            if (!showConfig) {
+              setShowConfig(true);
+            } else {
+              fileInputRef.current?.click();
+            }
+          }}
+          disabled={loading}
+          className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 text-emerald-300 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-50"
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileSpreadsheet className="w-4 h-4" />
+          )}
+          <span>Importar Excel</span>
+        </button>
+
+        {/* Botón de Borrar Todo */}
+        <button
+          onClick={handleDeleteAll}
+          disabled={loading}
+          title="Borrar todos los gastos"
+          className="flex items-center justify-center p-2 rounded-xl text-rose-400 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 disabled:opacity-50 transition-all"
+        >
+          <Trash2 className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Configuración de Cierres de Tarjeta */}
+      {showConfig && (
+        <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-xs flex flex-col gap-2 mt-2 w-full animate-in fade-in slide-in-from-top-2">
+          <p className="text-white/70 font-medium">Configurar días de cierre de tarjetas (para diferir pagos):</p>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-white/90">
+              Cierre Naranja (NX):
+              <input 
+                type="number" 
+                min={1} max={31} 
+                value={nxClosingDay} 
+                onChange={(e) => setNxClosingDay(Number(e.target.value))}
+                className="w-12 bg-white/10 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </label>
+            <label className="flex items-center gap-2 text-white/90">
+              Cierre Bancarias:
+              <input 
+                type="number" 
+                min={1} max={31} 
+                value={bankClosingDay} 
+                onChange={(e) => setBankClosingDay(Number(e.target.value))}
+                className="w-12 bg-white/10 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </label>
+          </div>
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full mt-1 bg-emerald-500 text-black font-semibold py-1.5 rounded-lg hover:bg-emerald-400 transition-colors"
+          >
+            Continuar con la importación
+          </button>
+        </div>
+      )}
+
+      {error && <p className="text-red-400 text-xs mt-2 w-full">{error}</p>}
     </div>
   );
 }

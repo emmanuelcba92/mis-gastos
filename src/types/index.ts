@@ -37,6 +37,7 @@ export interface Expense {
   installments_total: number; // Total de cuotas (1 = pago único)
   installments_paid: number; // Cuotas ya pagadas
   start_date: Timestamp; // Fecha de inicio / compra
+  billing_start_date?: Timestamp; // Fecha real en que empieza a cobrarse (para tarjetas de crédito)
   end_date: Timestamp | null; // Fecha de última cuota (calculada automáticamente)
   is_shared: boolean; // ¿Se comparte entre personas?
   split_count: number; // Cantidad de personas (1 = no compartido)

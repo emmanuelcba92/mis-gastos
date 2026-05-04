@@ -76,6 +76,19 @@ export async function deleteExpense(id: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, id));
 }
 
+// ── Eliminar TODOS los gastos de un usuario ──
+export async function deleteAllExpensesForUser(userId: string): Promise<void> {
+  const db = getFirebaseDb();
+  const q = query(collection(db, COLLECTION), where("userId", "==", userId));
+  const { getDocs, writeBatch } = await import("firebase/firestore");
+  const snapshot = await getDocs(q);
+  const batch = writeBatch(db);
+  snapshot.docs.forEach((docSnap) => {
+    batch.delete(docSnap.ref);
+  });
+  await batch.commit();
+}
+
 // ── Escuchar gastos en tiempo real ──
 export function subscribeToExpenses(
   userId: string,
@@ -100,7 +113,7 @@ export function subscribeToExpenses(
 // ── Calcular monto mensual de un gasto para un mes/año dado ──
 export function getMonthlyAmount(expense: Expense, month: number, year: number): number {
   const targetDate = new Date(year, month);
-  const startDate = expense.start_date.toDate();
+  const startDate = expense.billing_start_date ? expense.billing_start_date.toDate() : expense.start_date.toDate();
 
   // Suscripciones: siempre el monto completo si están activas
   if (expense.is_subscription) {
@@ -111,7 +124,7 @@ export function getMonthlyAmount(expense: Expense, month: number, year: number):
     return 0;
   }
 
-  // Pago único: solo el mes de la compra
+  // Pago único: solo el mes de la compra (o de facturación)
   if (expense.installments_total <= 1) {
     if (startDate.getMonth() === month && startDate.getFullYear() === year) {
       return expense.amount / (expense.split_count || 1);
@@ -140,7 +153,7 @@ export function getCurrentInstallment(
 ): number | null {
   if (expense.installments_total <= 1 || expense.is_subscription) return null;
 
-  const startDate = expense.start_date.toDate();
+  const startDate = expense.billing_start_date ? expense.billing_start_date.toDate() : expense.start_date.toDate();
   const startMonth = startDate.getMonth() + startDate.getFullYear() * 12;
   const targetMonth = month + year * 12;
 
