@@ -56,8 +56,12 @@ export async function updateExpense(
   const db = getFirebaseDb();
 
   // Recalcular end_date si se cambiaron las cuotas o start_date
+  const cleanData = Object.fromEntries(
+    Object.entries(data).filter(([_, v]) => v !== undefined)
+  );
+
   const updateData: Record<string, unknown> = {
-    ...data,
+    ...cleanData,
     updated_at: Timestamp.now(),
   };
 

@@ -96,6 +96,38 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
     try {
       const startDate = Timestamp.fromDate(new Date(data.start_date + "T12:00:00"));
 
+      const pm = paymentMethods.find((p) => p.id === data.payment_method_id);
+      let billingStartDate: Timestamp | undefined = undefined;
+
+      if (pm && pm.type === "credit_card") {
+        const isNX = pm.name.toLowerCase().includes("nx") || pm.name.toLowerCase().includes("naranja");
+        const nxClosingDay = 27;
+        const bankClosingDay = 25;
+        const closingDay = isNX ? nxClosingDay : bankClosingDay;
+        
+        const dateObj = new Date(data.start_date + "T12:00:00");
+        let billingMonth = dateObj.getMonth();
+        let billingYear = dateObj.getFullYear();
+
+        if (dateObj.getDate() >= closingDay) {
+          billingMonth += 2;
+        } else {
+          billingMonth += 1;
+        }
+
+        const titleLower = data.title.toLowerCase();
+        if (titleLower.includes("opcion") || titleLower.includes("opción") || titleLower.includes("pago digi")) {
+          billingMonth -= 1;
+        }
+
+        if (billingMonth > 11) {
+          billingMonth -= 12;
+          billingYear += 1;
+        }
+
+        billingStartDate = Timestamp.fromDate(new Date(billingYear, billingMonth, 1));
+      }
+
       if (expense) {
         await updateExpense(expense.id, {
           title: data.title,
@@ -108,6 +140,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
           split_count: data.is_shared ? data.split_count : 1,
           payment_method_id: data.payment_method_id,
           start_date: startDate,
+          billing_start_date: billingStartDate,
           currency: data.currency,
           notes: data.notes,
         });
@@ -124,6 +157,7 @@ export function ExpenseForm({ expense, paymentMethods, onClose, onSuccess }: Exp
           split_count: data.is_shared ? data.split_count : 1,
           payment_method_id: data.payment_method_id,
           start_date: startDate,
+          billing_start_date: billingStartDate,
           currency: data.currency,
           notes: data.notes,
         });
