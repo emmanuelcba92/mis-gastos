@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, FileSpreadsheet, Trash2, Save, X, Calendar } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import * as XLSX from "xlsx";
@@ -299,10 +300,15 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
     }
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // MODO PREVIEW
-  if (parsedData) {
-    return (
-      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+  if (parsedData && mounted) {
+    return createPortal(
+      <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-5xl flex flex-col h-[85vh] overflow-hidden shadow-2xl animate-in zoom-in-95">
           {/* Encabezado */}
           <div className="flex items-center justify-between p-6 border-b border-white/5 bg-zinc-900/50">
@@ -402,7 +408,8 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
             </div>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
