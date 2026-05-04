@@ -33,8 +33,9 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      // raw: false asegura que agarramos el texto tal cual se ve en Excel
-      const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, raw: false });
+      // raw: true (default) devuelve los tipos originales (Date, Number, String)
+      // cellDates: true en la lectura convierte las fechas de Excel a Date de JS
+      const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1, raw: true });
       const validRows = rows.filter(row => row && row.length > 0);
 
       if (validRows.length < 2) {
@@ -59,8 +60,10 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
 
       const localPaymentMethods = [...paymentMethods];
 
-      const parseAmount = (val: string) => {
-        let clean = val.replace(/[^0-9,\.-]/g, ''); 
+      const parseAmount = (val: any) => {
+        if (typeof val === "number") return val;
+        if (!val) return 0;
+        let clean = String(val).replace(/[^0-9,\.-]/g, ''); 
         if (clean.includes(',') && clean.includes('.')) {
           clean = clean.replace(/\./g, '').replace(',', '.');
         } else if (clean.includes(',')) {
@@ -72,18 +75,23 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
       for (let i = 1; i < validRows.length; i++) {
         const row = validRows[i];
         
-        const fechaStr = col.fecha !== -1 ? String(row[col.fecha] || "") : "";
+        const fechaVal = col.fecha !== -1 ? row[col.fecha] : null;
         const nombreStr = col.nombre !== -1 ? String(row[col.nombre] || "") : "";
         const catStr = col.categoria !== -1 && row[col.categoria] ? String(row[col.categoria]) : "Compra";
         const pagoStr = col.pago !== -1 && row[col.pago] ? String(row[col.pago]) : "Efectivo";
         const cuotasStr = col.cuotas !== -1 ? String(row[col.cuotas] || "") : "";
-        const totalStr = col.total !== -1 ? String(row[col.total] || "0") : "0";
+        const totalVal = col.total !== -1 ? row[col.total] : 0;
 
         if (!nombreStr) continue;
 
         let startDate = new Date();
-        if (fechaStr) {
-          const parts = fechaStr.split(/[-/]/);
+        if (fechaVal instanceof Date) {
+          startDate = fechaVal;
+        } else if (typeof fechaVal === "number") {
+          // Por si falla cellDates, calculamos desde número serial de Excel
+          startDate = new Date(Math.round((fechaVal - 25569) * 86400 * 1000));
+        } else if (typeof fechaVal === "string" && fechaVal.trim()) {
+          const parts = fechaVal.split(/[-/]/);
           if (parts.length >= 3) {
             const day = Number(parts[0]);
             const month = Number(parts[1]) - 1;
@@ -105,7 +113,7 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           }
         }
 
-        const amount = parseAmount(totalStr);
+        const amount = parseAmount(totalVal);
         if (amount === 0) continue;
 
         let pmId = "";
