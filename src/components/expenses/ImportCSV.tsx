@@ -164,11 +164,11 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           let billingYear = startDate.getFullYear();
 
           if (startDate.getDate() > closingDay) {
-            // Pasó el cierre, entra al otro mes
-            billingMonth += 2;
-          } else {
-            // Entra al mes siguiente
+            // Pasó el cierre, entra al mes siguiente
             billingMonth += 1;
+          } else {
+            // Antes del cierre, entra en el mismo mes
+            billingMonth += 0;
           }
 
           if (billingMonth > 11) {
