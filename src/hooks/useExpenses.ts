@@ -57,23 +57,40 @@ export function useExpenses(filters: ExpenseFilters) {
     });
   }, [allExpenses, filters]);
 
-  // Totales calculados
+  // Totales calculados ARS
   const monthlyTotal = useMemo(() => {
-    return filteredExpenses.reduce(
-      (sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year),
-      0
-    );
+    return filteredExpenses
+      .filter(e => e.currency !== "USD")
+      .reduce((sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year), 0);
+  }, [filteredExpenses, filters.month, filters.year]);
+
+  const monthlyTotalUSD = useMemo(() => {
+    return filteredExpenses
+      .filter(e => e.currency === "USD")
+      .reduce((sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year), 0);
   }, [filteredExpenses, filters.month, filters.year]);
 
   const subscriptionTotal = useMemo(() => {
     return filteredExpenses
-      .filter((e) => e.is_subscription)
+      .filter((e) => e.is_subscription && e.currency !== "USD")
+      .reduce((sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year), 0);
+  }, [filteredExpenses, filters.month, filters.year]);
+
+  const subscriptionTotalUSD = useMemo(() => {
+    return filteredExpenses
+      .filter((e) => e.is_subscription && e.currency === "USD")
       .reduce((sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year), 0);
   }, [filteredExpenses, filters.month, filters.year]);
 
   const installmentsTotal = useMemo(() => {
     return filteredExpenses
-      .filter((e) => !e.is_subscription && e.installments_total > 1)
+      .filter((e) => !e.is_subscription && e.installments_total > 1 && e.currency !== "USD")
+      .reduce((sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year), 0);
+  }, [filteredExpenses, filters.month, filters.year]);
+
+  const installmentsTotalUSD = useMemo(() => {
+    return filteredExpenses
+      .filter((e) => !e.is_subscription && e.installments_total > 1 && e.currency === "USD")
       .reduce((sum, exp) => sum + getMonthlyAmount(exp, filters.month, filters.year), 0);
   }, [filteredExpenses, filters.month, filters.year]);
 
@@ -105,8 +122,11 @@ export function useExpenses(filters: ExpenseFilters) {
     expenses: filteredExpenses,
     allExpenses,
     monthlyTotal,
+    monthlyTotalUSD,
     subscriptionTotal,
+    subscriptionTotalUSD,
     installmentsTotal,
+    installmentsTotalUSD,
     subscriptionCount,
     installmentsCount,
     sharedCount,

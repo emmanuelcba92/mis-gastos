@@ -135,6 +135,12 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
         const amount = parseAmount(totalVal);
         if (amount === 0) continue;
 
+        let currency: "ARS" | "USD" = "ARS";
+        const totalStr = String(totalVal).toLowerCase();
+        if (totalStr.includes("u$s") || totalStr.includes("usd") || totalStr.includes("us$")) {
+          currency = "USD";
+        }
+
         // Buscar o crear método de pago
         let pmId = "";
         let isCreditCard = true; // Por defecto creamos como crédito
@@ -163,12 +169,18 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           let billingMonth = startDate.getMonth();
           let billingYear = startDate.getFullYear();
 
-          if (startDate.getDate() > closingDay) {
-            // Pasó el cierre, entra al mes siguiente
-            billingMonth += 1;
+          if (startDate.getDate() >= closingDay) {
+            // A partir del día de cierre, entra al otro mes (+2)
+            billingMonth += 2;
           } else {
-            // Antes del cierre, entra en el mismo mes
-            billingMonth += 0;
+            // Hasta un día antes del cierre, entra al mes siguiente (+1)
+            billingMonth += 1;
+          }
+
+          // Excepción para refinanciaciones (Opciones Elegidas / Plan Z)
+          // Naranja X suele cobrar la primera cuota en el resumen anterior al mes de la fecha de la operación
+          if (nombreStr.toLowerCase().includes("opcion elegida") || nombreStr.toLowerCase().includes("pago digi")) {
+            billingMonth -= 1;
           }
 
           if (billingMonth > 11) {
@@ -184,6 +196,7 @@ export function ImportCSV({ userId, paymentMethods, onSuccess }: ImportCSVProps)
           title: nombreStr,
           category: catStr,
           amount: amount,
+          currency: currency,
           is_subscription: catStr.toLowerCase().includes("suscrip"),
           installments_total: installmentsTotal,
           installments_paid: installmentsPaid,

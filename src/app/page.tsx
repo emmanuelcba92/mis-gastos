@@ -48,9 +48,12 @@ export default function HomePage() {
   const {
     expenses,
     monthlyTotal,
+    monthlyTotalUSD,
     subscriptionTotal,
+    subscriptionTotalUSD,
     subscriptionCount,
     installmentsTotal,
+    installmentsTotalUSD,
     installmentsCount,
     sharedCount,
     categoryBreakdown,
@@ -167,9 +170,12 @@ export default function HomePage() {
             {/* Summary Cards */}
             <SummaryCards
               monthlyTotal={monthlyTotal}
+              monthlyTotalUSD={monthlyTotalUSD}
               subscriptionTotal={subscriptionTotal}
+              subscriptionTotalUSD={subscriptionTotalUSD}
               subscriptionCount={subscriptionCount}
               installmentsTotal={installmentsTotal}
+              installmentsTotalUSD={installmentsTotalUSD}
               installmentsCount={installmentsCount}
               sharedCount={sharedCount}
             />

@@ -114,17 +114,22 @@ export function ExpenseList({
                 <td className="px-6 py-4 text-right">
                   <div className="flex flex-col items-end">
                     <span className="text-sm font-bold text-zinc-100 font-mono">
-                      ${monthlyAmount.toLocaleString("es-AR", { minimumFractionDigits: 0 })}
+                      {expense.currency === "USD" ? "u$s" : "$"} {monthlyAmount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                     {expense.is_shared && expense.split_count > 1 && (
-                      <span className="text-[10px] text-zinc-500">tu parte</span>
+                      <>
+                        <span className="text-[10px] text-emerald-400/80 font-medium">tu parte</span>
+                        <span className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                          {expense.currency === "USD" ? "u$s" : "$"} {(monthlyAmount * expense.split_count).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total
+                        </span>
+                      </>
                     )}
                   </div>
                 </td>
 
                 {/* Monto Total */}
                 <td className="px-6 py-4 text-right text-sm text-zinc-500 font-mono">
-                  ${expense.amount.toLocaleString("es-AR", { minimumFractionDigits: 0 })}
+                  {expense.currency === "USD" ? "u$s" : "$"} {expense.amount.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
 
                 {/* Acciones */}

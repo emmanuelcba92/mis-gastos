@@ -33,6 +33,7 @@ export interface Expense {
   title: string;
   category: string;
   amount: number; // Monto total del gasto
+  currency?: "ARS" | "USD"; // Moneda del gasto
   is_subscription: boolean; // true = gasto recurrente mensual (ej: ChatGPT, Spotify)
   installments_total: number; // Total de cuotas (1 = pago único)
   installments_paid: number; // Cuotas ya pagadas
